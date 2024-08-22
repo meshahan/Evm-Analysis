@@ -16,8 +16,12 @@ def save_as_jpg(content, file_name, title, subtitle):
     # Content
     ax.text(0.05, 0.6, content, ha='left', va='top', fontsize=16, color='black', bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'))
 
-    plt.savefig(file_name, format='jpg', bbox_inches='tight', pad_inches=0.1)
-    plt.close(fig)
+    img_buffer = BytesIO()
+    plt.savefig(img_buffer, format='jpg', bbox_inches='tight', pad_inches=0.1)
+    img_buffer.seek(0)
+    plt.close(fig)  # Close the figure to free up memory
+
+    return img_buffer
 
 def generate_graph():
     # Time points for S-Curves
@@ -64,13 +68,39 @@ def generate_graph():
     # Move legend below the graph
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
 
-    # Save the plot as JPG
     img_buffer = BytesIO()
     plt.savefig(img_buffer, format='jpg')
     img_buffer.seek(0)
     plt.close(fig)  # Close the figure to free up memory
 
     return img_buffer
+
+# Sidebar with EVM, Application Information, and Graph Legends
+st.sidebar.title("EVM Calculator")
+st.sidebar.markdown("""
+### About Earned Value Management (EVM)
+Earned Value Management (EVM) is a project management technique that integrates scope, cost, and schedule metrics to assess project performance and progress. It provides key insights into project health, including:
+
+- **Planned Value (PV):** The value of the work that was planned to be completed by a specific time.
+- **Earned Value (EV):** The value of the work actually completed by a specific time.
+- **Actual Cost (AC):** The actual cost incurred for the work performed by a specific time.
+
+### About This Application
+This EVM Calculator allows you to input project parameters and generate key EVM metrics such as CPI, SPI, CV, and SV. The application also provides visual representations through S-Curves and variance areas.
+
+### Graph Legends and Colors
+- **Planned Value (PV) S-Curve:** Blue
+- **Earned Value (EV) S-Curve:** Green
+- **Actual Cost (AC) S-Curve:** Red
+- **Under-Completion Area (EV < PV):** Light Green (Shaded Area)
+- **Cost Overrun Area (AC < PV):** Light Coral (Shaded Area)
+- **ETC Line:** Orange (Dashed Line)
+- **ETC Value:** Orange (Dashed Horizontal Line)
+- **VAC Value:** Purple (Dashed Horizontal Line)
+- **Cost Variance (CV):** Brown (Dashed Horizontal Line)
+- **Schedule Variance (SV):** Pink (Dashed Horizontal Line)
+- **Budget at Completion (BAC):** Black (Dashed Horizontal Line)
+""")
 
 # Title
 st.markdown("<h1 style='font-size: 36px; font-weight: bold; color: black; background-color: pink; padding: 10px; text-align: left;'>EVM CALCULATOR</h1>", unsafe_allow_html=True)
@@ -108,6 +138,8 @@ with col1:
         results_content = (
             f"**Budget at Completion (BAC):** {bac:.2f}\n"
             f"**Earned Value (EV):** {ev:.2f}\n"
+            f"**Planned Value (PV):** {pv:.2f}\n"
+            f"**Actual Cost (AC):** {ac:.2f}\n"
             f"**Cost Performance Index (CPI):** {cpi:.2f}\n"
             f"**Schedule Performance Index (SPI):** {spi:.2f}\n"
             f"**Cost Variance (CV):** {cv:.2f}\n"
@@ -115,57 +147,24 @@ with col1:
             f"**Estimate at Completion (EAC) based on CPI:** {eac_cpi:.2f}\n"
             f"**Estimate at Completion (EAC) based on CPI and SPI:** {eac_cpi_spi:.2f}\n"
             f"**Estimate to Complete (ETC):** {etc:.2f}\n"
-            f"**Variance at Completion (VAC):** {vac:.2f}"
+            f"**Variance at Completion (VAC):** {vac:.2f}\n"
         )
-        
-        st.write(results_content)
-
-with col2:
-    st.markdown("<h3 style='background-color: yellow; color: black; font-weight: bold; padding: 10px; font-size: 22px; text-align: left;'>Graphs</h3>", unsafe_allow_html=True)
-    with st.expander("Expand to view graphs", expanded=True):
-        st.write("### Graphical Forecasts")
-        img_buffer = generate_graph()
-
-        # Display Image
-        st.image(img_buffer, caption="EVM Graph", use_column_width=True)
-
-        # Provide a download button for the JPG
+        st.text(results_content)
         st.download_button(
-            label="Download Graph as JPG",
-            data=img_buffer,
-            file_name="evm_graph.jpg",
+            label="Download Results as JPG",
+            data=save_as_jpg(results_content, 'results.jpg', 'EVM CALCULATOR RESULTS', 'Detailed Results'),
+            file_name="evm_results.jpg",
             mime="image/jpeg"
         )
-
-# Save input and results as images and provide download links
-input_file = "input_data.jpg"
-results_file = "results_data.jpg"
-
-save_as_jpg(
-    content=f"**Budget at Completion (BAC):** {bac:.2f}\n**Earned Value (EV):** {ev:.2f}\n**Actual Cost (AC):** {ac:.2f}\n**Performance Percentage:** {performance_percentage:.2f}\n**Total Project Value ($):** {total_project_value:.2f}",
-    file_name=input_file,
-    title="Input Data",
-    subtitle="Enter your values to calculate EVM parameters."
-)
-
-save_as_jpg(
-    content=results_content,
-    file_name=results_file,
-    title="Calculation Results",
-    subtitle="EVM parameters calculated from the entered data."
-)
-
-# Provide download buttons for the input and results images
-st.download_button(
-    label="Download Input Data as JPG",
-    data=open(input_file, "rb").read(),
-    file_name=input_file,
-    mime="image/jpeg"
-)
-
-st.download_button(
-    label="Download Results as JPG",
-    data=open(results_file, "rb").read(),
-    file_name=results_file,
-    mime="image/jpeg"
-)
+        
+with col2:
+    st.markdown("<h3 style='background-color: yellow; color: black; font-weight: bold; padding: 10px; font-size: 22px; text-align: left;'>Graph</h3>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: black;'>Generated S-Curves with Variance Areas</h4>", unsafe_allow_html=True)
+    graph_img = generate_graph()
+    st.image(graph_img, caption='S-Curves for PV, EV, and AC with Variance Areas')
+    st.download_button(
+        label="Download Graph as JPG",
+        data=graph_img,
+        file_name="evm_graph.jpg",
+        mime="image/jpeg"
+    )
